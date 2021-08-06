@@ -50,7 +50,7 @@ contract SecondaryCollectible is ERC721, Ownable {
     require(
       _holderMintCount[msg.sender] <
       burnCount,
-      "You have not burned a primary NFT"
+      "Your primaryNFT burn balance is 0"
     );
 
     _tokenIds.increment();

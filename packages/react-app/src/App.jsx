@@ -213,7 +213,6 @@ function App(props) {
   const updateYourCollectibles = async (address, balance, contract, updateFn) => {
     const collectibleUpdate = [];
     for (let tokenIndex = 0; tokenIndex < balance; tokenIndex++) {
-      console.log(tokenIndex, readContracts[contract]);
       try {
         console.log("Getting token index", tokenIndex);
         const tokenId = await readContracts[contract].tokenOfOwnerByIndex(address, tokenIndex);
@@ -237,7 +236,6 @@ function App(props) {
         console.log(e);
       }
     }
-    console.log(address, balance, contract, collectibleUpdate);
     updateFn(collectibleUpdate);
   }
 
