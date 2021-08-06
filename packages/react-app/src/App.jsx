@@ -195,6 +195,7 @@ function App(props) {
 
   // keep track of a variable from the contract in the local React state:
   const balance = useContractReader(readContracts, "YourCollectible", "balanceOf", [address]);
+  const secondaryBalance = useContractReader(readContracts, "SecondaryCollectible", "balanceOf", [address]);
   console.log("🤗 balance:", balance);
 
   // 📟 Listen for broadcast events
@@ -205,39 +206,60 @@ function App(props) {
   // 🧠 This effect will update yourCollectibles by polling when your balance changes
   //
   const yourBalance = balance && balance.toNumber && balance.toNumber();
-  const [yourCollectibles, setYourCollectibles] = useState();
+  const yourSecondaryBalance = secondaryBalance && secondaryBalance.toNumber && secondaryBalance.toNumber();
+  const [yourCollectibles, setYourCollectibles] = useState([]);
+  const [secondaryCollectibles, setSecondaryCollectibles] = useState([]);
 
-  useEffect(() => {
-    const updateYourCollectibles = async () => {
-      const collectibleUpdate = [];
-      for (let tokenIndex = 0; tokenIndex < balance; tokenIndex++) {
+  const updateYourCollectibles = async (address, balance, contract, updateFn) => {
+    const collectibleUpdate = [];
+    for (let tokenIndex = 0; tokenIndex < balance; tokenIndex++) {
+      console.log(tokenIndex, readContracts[contract]);
+      try {
+        console.log("Getting token index", tokenIndex);
+        const tokenId = await readContracts[contract].tokenOfOwnerByIndex(address, tokenIndex);
+        console.log("tokenId", tokenId);
+        const tokenURI = await readContracts[contract].tokenURI(tokenId);
+        console.log("tokenURI", tokenURI);
+
+        const ipfsHash = tokenURI.replace("https://ipfs.io/ipfs/", "");
+        console.log("ipfsHash", ipfsHash);
+
+        const jsonManifestBuffer = await getFromIPFS(ipfsHash);
+
         try {
-          console.log("GEtting token index", tokenIndex);
-          const tokenId = await readContracts.YourCollectible.tokenOfOwnerByIndex(address, tokenIndex);
-          console.log("tokenId", tokenId);
-          const tokenURI = await readContracts.YourCollectible.tokenURI(tokenId);
-          console.log("tokenURI", tokenURI);
-
-          const ipfsHash = tokenURI.replace("https://ipfs.io/ipfs/", "");
-          console.log("ipfsHash", ipfsHash);
-
-          const jsonManifestBuffer = await getFromIPFS(ipfsHash);
-
-          try {
-            const jsonManifest = JSON.parse(jsonManifestBuffer.toString());
-            console.log("jsonManifest", jsonManifest);
-            collectibleUpdate.push({ id: tokenId, uri: tokenURI, owner: address, ...jsonManifest });
-          } catch (e) {
-            console.log(e);
-          }
+          const jsonManifest = JSON.parse(jsonManifestBuffer.toString());
+          console.log("jsonManifest", jsonManifest);
+          collectibleUpdate.push({ id: tokenId, uri: tokenURI, owner: address, ...jsonManifest });
         } catch (e) {
           console.log(e);
         }
+      } catch (e) {
+        console.log(e);
       }
-      setYourCollectibles(collectibleUpdate);
-    };
-    updateYourCollectibles();
+    }
+    console.log(address, balance, contract, collectibleUpdate);
+    updateFn(collectibleUpdate);
+  }
+
+  // primary contract
+  useEffect(() => {
+    updateYourCollectibles(
+      address,
+      yourBalance,
+      'YourCollectible',
+      setYourCollectibles
+    );
   }, [address, yourBalance]);
+
+  // secondary contract
+  useEffect(() => {
+    updateYourCollectibles(
+      address,
+      yourSecondaryBalance,
+      'SecondaryCollectible',
+      setSecondaryCollectibles
+    );
+  }, [yourSecondaryBalance])
 
   /*
   const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
@@ -420,6 +442,18 @@ function App(props) {
 
   const [transferToAddresses, setTransferToAddresses] = useState({});
 
+  const memoizedGetCollectibleDataSource = useCallback(
+    () => {
+      return [
+        ...yourCollectibles,
+        ...secondaryCollectibles
+      ];
+    },
+    [yourCollectibles, secondaryCollectibles]
+  );
+
+  console.log(yourCollectibles, secondaryCollectibles, memoizedGetCollectibleDataSource());
+
   return (
     <div className="App">
       {/* ✏️ Edit the header and change the title to your project name */}
@@ -489,7 +523,7 @@ function App(props) {
             <div style={{ width: 640, margin: "auto", marginTop: 32, paddingBottom: 32 }}>
               <List
                 bordered
-                dataSource={yourCollectibles}
+                dataSource={memoizedGetCollectibleDataSource()}
                 renderItem={item => {
                   const id = item.id.toNumber();
                   return (
@@ -636,6 +670,13 @@ function App(props) {
           <Route path="/debugcontracts">
             <Contract
               name="YourCollectible"
+              signer={userSigner}
+              provider={localProvider}
+              address={address}
+              blockExplorer={blockExplorer}
+            />
+            <Contract
+              name="SecondaryCollectible"
               signer={userSigner}
               provider={localProvider}
               address={address}
