@@ -20,7 +20,7 @@ contract SecondaryCollectible is ERC721, Ownable {
   // external secondary collectible contract
   YourCollectible private primaryCollectible;
 
-  constructor() public ERC721("primaryCollectible", "SCB") {
+  constructor() public ERC721("SecondaryCollectible", "SCB") {
     _setBaseURI("https://ipfs.io/ipfs/");
   }
 
